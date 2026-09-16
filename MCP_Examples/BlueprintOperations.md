@@ -1,13 +1,12 @@
 # Blueprint Operations
 
-## Example 1: Getting a Full View of a Blueprint
+## Example 1: Inspecting and Modifying Third Person Character Movement
 
-This example shows how to build a complete, read-only view of
-`BP_ThirdPersonCharacter` through Unreal MCP. No single tool returns every part
-of a Blueprint, so the result is assembled from its asset relationships,
-graphs, nodes, pin connections, class structure, components, and properties.
-
-No Blueprint or asset was modified.
+This example uses Unreal MCP to understand how `BP_ThirdPersonCharacter` is
+driven by input and then changes the character so it always faces the camera's
+horizontal direction. No single tool returns every part of a Blueprint, so the
+inspection combines asset relationships, graphs, nodes, pin connections,
+components, and properties before making the change.
 
 ## Plugins
 
@@ -36,11 +35,15 @@ No Blueprint or asset was modified.
 - `BlueprintTools.find_nodes` and `get_node_infos` expose exact node and pin
   connections.
 - `BlueprintTools.get_default_object` returns the character CDO.
+- `BlueprintTools.compile_blueprint` compiles the Blueprint after modification.
 - `ActorTools.get_components` enumerates the Blueprint's actor components.
 - `ObjectTools.list_properties` and `get_properties` inspect the CDO,
   components, and referenced assets.
+- `ObjectTools.set_properties` changes the character and movement-component
+  defaults.
+- `AssetTools.save_assets` saves the modified Blueprint.
 
-## Building the full Blueprint view
+## Understanding the movement setup
 
 1. Locate the Blueprint with `AssetTools.find_assets`, then load it with
    `AssetTools.load_asset`. Loading returns the object reference required by
@@ -74,3 +77,55 @@ No Blueprint or asset was modified.
 The full view is therefore the combination of the graph DSL for readability,
 node and pin data for exact topology, asset references for external context,
 and CDO/component properties for state that is not represented by graph nodes.
+
+For this Blueprint, the graph inspection showed that the Enhanced Input event
+for `IA_Move` calls the `Move` function. `Move` converts the controller's yaw
+into forward and right vectors and passes them to `AddMovementInput`. The
+character's facing direction, however, is controlled by defaults on the
+character and its `CharacterMovementComponent`, not by nodes in the movement
+graph.
+
+## Making the character face the camera direction
+
+1. Call `BlueprintTools.get_default_object` to obtain the generated character
+   CDO.
+2. Call `ActorTools.get_components` on the CDO and select `CharMoveComp`, the
+   `CharacterMovementComponent`.
+3. Call `ObjectTools.list_properties` on both objects to discover the exact
+   rotation property names. Read their current values with
+   `ObjectTools.get_properties`.
+4. Call `ObjectTools.set_properties` on the character CDO with the following
+   JSON-formatted `values` string:
+
+   ```json
+   {"bUseControllerRotationYaw": true}
+   ```
+
+5. Call `ObjectTools.set_properties` on `CharMoveComp` with:
+
+   ```json
+   {
+     "bOrientRotationToMovement": false,
+     "bUseControllerDesiredRotation": false
+   }
+   ```
+
+   Enabling `bUseControllerRotationYaw` makes the character use controller yaw,
+   which is also driving the camera spring arm. Disabling
+   `bOrientRotationToMovement` prevents movement direction from overriding that
+   facing direction. Pitch and roll remain disabled so the character stays
+   upright.
+6. Call `BlueprintTools.compile_blueprint`, followed by
+   `AssetTools.save_assets` for `BP_ThirdPersonCharacter`.
+7. Verify the saved state with `ObjectTools.get_properties`. The resulting
+   values are:
+
+   ```json
+   {
+     "bUseControllerRotationPitch": false,
+     "bUseControllerRotationYaw": true,
+     "bUseControllerRotationRoll": false,
+     "bOrientRotationToMovement": false,
+     "bUseControllerDesiredRotation": false
+   }
+   ```
