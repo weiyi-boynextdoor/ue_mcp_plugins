@@ -1,12 +1,11 @@
 # Blueprint Operations
 
-## Example 1: Inspecting Third Person Character Input
+## Example 1: Getting a Full View of a Blueprint
 
-This example used Unreal MCP to determine how
-`BP_ThirdPersonCharacter` is driven by player input. The inspection followed
-the input data from mapping contexts, through Enhanced Input events in the
-character's Event Graph, and into the `Move`, `Aim`, `Jump`, and `StopJumping`
-calls. It also inspected relevant character movement and camera properties.
+This example shows how to build a complete, read-only view of
+`BP_ThirdPersonCharacter` through Unreal MCP. No single tool returns every part
+of a Blueprint, so the result is assembled from its asset relationships,
+graphs, nodes, pin connections, class structure, components, and properties.
 
 No Blueprint or asset was modified.
 
@@ -26,37 +25,52 @@ No Blueprint or asset was modified.
 
 ### Editor Toolset (`EditorToolset`)
 
-- `AssetTools.find_assets` locates the character and input mapping contexts.
-- `AssetTools.load_asset` loads Blueprints, input actions, and mapping contexts.
-- `AssetTools.get_dependencies` and `AssetTools.get_referencers` connect the
-  input actions to `IMC_Default`, `IMC_MouseLook`, and the player controller.
+- `AssetTools.find_assets` locates the Blueprint and related assets.
+- `AssetTools.load_asset` loads assets and returns references for other tools.
+- `AssetTools.get_dependencies` and `AssetTools.get_referencers` expose the
+  Blueprint's external asset relationships.
 - `BlueprintTools.list_graphs`, `list_events`, `list_functions`,
-  `list_variables`, and `get_parent` summarize the character Blueprint.
-- `BlueprintTools.read_graph_dsl` reads the Event Graph and the `Move` and
-  `Aim` function graphs.
+  `list_variables`, and `get_parent` summarize the Blueprint structure.
+- `BlueprintTools.read_graph_dsl` returns a readable representation of each
+  graph.
 - `BlueprintTools.find_nodes` and `get_node_infos` expose exact node and pin
-  connections, including the Enhanced Input trigger outputs.
+  connections.
 - `BlueprintTools.get_default_object` returns the character CDO.
-- `ActorTools.get_components` locates the movement, camera, and spring-arm
-  components.
-- `ObjectTools.list_properties` and `get_properties` read input mappings,
-  action types, movement rotation settings, and camera settings.
+- `ActorTools.get_components` enumerates the Blueprint's actor components.
+- `ObjectTools.list_properties` and `get_properties` inspect the CDO,
+  components, and referenced assets.
 
-## Result
+## Building the full Blueprint view
 
-`BP_ThirdPersonPlayerController` adds `IMC_Default` on `BeginPlay` and adds
-`IMC_MouseLook` when touch controls are not active. In
-`BP_ThirdPersonCharacter`:
+1. Locate the Blueprint with `AssetTools.find_assets`, then load it with
+   `AssetTools.load_asset`. Loading returns the object reference required by
+   the Blueprint tools.
+2. Establish the Blueprint's overall structure with
+   `BlueprintTools.list_graphs`, `list_events`, `list_functions`,
+   `list_variables`, and `get_parent`. This prevents hidden function graphs or
+   inherited behavior from being mistaken for missing logic.
+3. Call `BlueprintTools.read_graph_dsl` for every graph returned by
+   `list_graphs`. The DSL is the quickest readable overview of each execution
+   graph and exposes function calls and data flow.
+4. Do not treat the DSL as the complete graph representation. For each graph,
+   call `BlueprintTools.find_nodes` with an empty title filter to enumerate all
+   nodes, then pass those references to `BlueprintTools.get_node_infos`.
+   `get_node_infos` supplies the exact node types, input and output pins,
+   default values, positions, and connected-pin references. This second pass
+   reveals connections or disconnected nodes that the compact DSL may omit.
+5. Use `AssetTools.get_dependencies` and `get_referencers` to follow references
+   outside the Blueprint. Load any relevant referenced assets and inspect them
+   with the same asset or object tools. This provides the context that is not
+   stored directly in the graph.
+6. Retrieve the generated class default object with
+   `BlueprintTools.get_default_object`. Use `ActorTools.get_components` to
+   enumerate inherited and Blueprint-created components.
+7. For the CDO, components, and referenced assets, call
+   `ObjectTools.list_properties` before `ObjectTools.get_properties`.
+   `list_properties` provides the valid property names and schemas; selectively
+   reading those properties completes the non-graph portion of the Blueprint
+   view without dumping irrelevant engine state.
 
-- `IA_Move` calls `Move`, which applies controller-yaw-relative forward and
-  right movement.
-- `IA_Look` and `IA_MouseLook` call `Aim`, which applies controller yaw and
-  pitch input.
-- `IA_Jump` calls `Jump` on `Started` and `StopJumping` on `Completed`.
-- Touch thumbsticks call the same `Move` and `Aim` functions, while touch jump
-  events call `Jump` and `StopJumping`.
-
-The default mapping context maps movement to WASD, arrow keys, and the left
-gamepad stick; jumping to Spacebar and the bottom gamepad face button; and
-looking to the right gamepad stick. `IMC_MouseLook` maps mouse movement to
-`IA_MouseLook`.
+The full view is therefore the combination of the graph DSL for readability,
+node and pin data for exact topology, asset references for external context,
+and CDO/component properties for state that is not represented by graph nodes.
