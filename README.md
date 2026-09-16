@@ -18,3 +18,6 @@ A UE5 project for testing and developing MCP plugins.
    ```
 
    This generates `.mcp.json` (Claude Code), `.cursor/mcp.json`, `.vscode/mcp.json`, `.gemini/settings.json`, and `.codex/config.toml` (Codex uses TOML). Source builds write these files to the engine workspace root (the directory containing `Engine/`); installed builds write them to the project directory. Check the Output Log for the generated paths.
+
+## Enable Toolsets
+Enable Toolsets plugins, AllToolsets for all toolsets provided by UE.
