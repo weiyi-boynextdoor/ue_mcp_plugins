@@ -1,0 +1,53 @@
+# Normalize text files and use LF in the working tree.
+* text=auto eol=lf
+
+# Windows command scripts require CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Unreal Engine descriptors, configuration, and source files.
+*.uproject text
+*.uplugin text
+*.ini text
+*.h text
+*.hpp text
+*.cpp text
+*.cs text
+*.usf text
+*.ush text
+
+# Unreal Engine assets cannot be merged as text.
+*.uasset binary
+*.umap binary
+*.ubulk binary
+*.uexp binary
+*.uptnl binary
+
+# Common binary source assets and packaged content.
+*.fbx binary
+*.blend binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.tga binary
+*.dds binary
+*.exr binary
+*.hdr binary
+*.ico binary
+*.psd binary
+*.wav binary
+*.ogg binary
+*.mp3 binary
+*.mp4 binary
+*.mov binary
+*.ttf binary
+*.otf binary
+*.zip binary
+*.7z binary
+*.pak binary
+*.ucas binary
+*.utoc binary
+*.dll binary
+*.lib binary
+*.exe binary
+*.pdb binary

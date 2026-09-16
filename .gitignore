@@ -1,0 +1,38 @@
+# Unreal Engine generated files (including plugins).
+Binaries/
+Intermediate/
+Saved/
+DerivedDataCache/
+
+# Local engine installation path.
+/.ue_source_path
+
+# Generated IDE projects and local settings.
+.vs/
+.idea/
+.vscode/
+*.sln
+*.slnx
+*.suo
+*.sdf
+*.opensdf
+*.VC.db
+*.VC.opendb
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.code-workspace
+*.xcodeproj/
+*.xcworkspace/
+/Makefile
+/CMakeLists.txt
+/CMakePresets.json
+/compile_commands.json
+
+# Operating system files.
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Keep Build/, Config/, Content/, Source/, and plugin resources tracked.
+# Build/ can contain required packaging settings, icons, and signing files.
