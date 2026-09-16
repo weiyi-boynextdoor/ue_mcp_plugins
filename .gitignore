@@ -36,3 +36,9 @@ Desktop.ini
 
 # Keep Build/, Config/, Content/, Source/, and plugin resources tracked.
 # Build/ can contain required packaging settings, icons, and signing files.
+
+# generate mcp config file with ```ModelContextProtocol.GenerateClientConfig All```
+.mcp.json
+mcp.json
+.codex/config.toml
+.gemini/settings.json
