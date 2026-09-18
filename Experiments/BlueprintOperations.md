@@ -1,8 +1,8 @@
 # Blueprint Operations
 
-## Example 1: Inspect Third Person Character Movement
+## Experiment 1: Inspect Third Person Character Movement
 
-This example inspects how `BP_ThirdPersonCharacter` moves. It does not inspect
+This experiment inspects how `BP_ThirdPersonCharacter` moves. It does not inspect
 or modify character facing.
 
 ### Result
