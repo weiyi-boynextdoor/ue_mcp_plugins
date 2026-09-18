@@ -1,131 +1,69 @@
 # Blueprint Operations
 
-## Example 1: Inspecting and Modifying Third Person Character Movement
+## Example 1: Inspect Third Person Character Movement
 
-This example uses Unreal MCP to understand how `BP_ThirdPersonCharacter` is
-driven by input and then changes the character so it always faces the camera's
-horizontal direction. No single tool returns every part of a Blueprint, so the
-inspection combines asset relationships, graphs, nodes, pin connections,
-components, and properties before making the change.
+This example inspects how `BP_ThirdPersonCharacter` moves. It does not inspect
+or modify character facing.
 
-## Plugins
+### Result
 
-- **Unreal MCP** (`ModelContextProtocol`) exposes the Unreal MCP server.
-- **Editor Toolset** (`EditorToolset`) provides the asset, Blueprint, object,
-  and actor inspection tools.
+`IA_Move` produces a two-dimensional input value. Its `Triggered` execution pin
+calls `Move`, passing `ActionValue_X` as `X Axis` and `ActionValue_Y` as
+`Y Axis`.
 
-## MCP tools used and their owners
+Inside `Move`, the Blueprint reads the controller rotation and uses only its
+yaw:
 
-### Unreal MCP (`ModelContextProtocol`)
+- `X Axis` scales the yaw-relative right vector.
+- `Y Axis` scales the yaw-relative forward vector.
+- Each vector is passed to `AddMovementInput`.
 
-- `list_toolsets` discovers registered toolsets.
-- `describe_toolset` returns their tool names and argument schemas.
-- `call_tool` invokes a tool from a registered toolset.
+The same `Move` function is also called by `Touch|EventPrimaryThumbstick`.
 
-### Editor Toolset (`EditorToolset`)
+### MCP call details
 
-- `AssetTools.find_assets` locates the Blueprint and related assets.
-- `AssetTools.load_asset` loads assets and returns references for other tools.
-- `AssetTools.get_dependencies` and `AssetTools.get_referencers` expose the
-  Blueprint's external asset relationships.
-- `BlueprintTools.list_graphs`, `list_events`, `list_functions`,
-  `list_variables`, and `get_parent` summarize the Blueprint structure.
-- `BlueprintTools.read_graph_dsl` returns a readable representation of each
-  graph.
-- `BlueprintTools.find_nodes` and `get_node_infos` expose exact node and pin
-  connections.
-- `BlueprintTools.get_default_object` returns the character CDO.
-- `BlueprintTools.compile_blueprint` compiles the Blueprint after modification.
-- `ActorTools.get_components` enumerates the Blueprint's actor components.
-- `ObjectTools.list_properties` and `get_properties` inspect the CDO,
-  components, and referenced assets.
-- `ObjectTools.set_properties` changes the character and movement-component
-  defaults.
-- `AssetTools.save_assets` saves the modified Blueprint.
+The run made **11 MCP calls: 10 succeeded and 1 was rejected**. Each call
+returns a specific layer of information rather than the complete Blueprint.
 
-## Understanding the movement setup
+| # | Interface | Why it was called | Return scope | What it returned |
+|---:|---|---|---|---|
+| 1 | `list_toolsets` | Discover available Unreal capabilities. | Toolset names and descriptions only; no tool schemas or Blueprint data. | Found `AssetTools` and `BlueprintTools`. |
+| 2 | `describe_toolset(AssetTools)` | Learn the valid asset tools and arguments. | The entire `AssetTools` API schema; no project assets. | Included `find_assets` and `load_asset` schemas. |
+| 3 | `describe_toolset(BlueprintTools)` | Learn the valid Blueprint inspection tools and arguments. | The entire `BlueprintTools` API schema; no Blueprint contents. | Included graph, node, and pin inspection schemas. |
+| 4 | `call_tool(AssetTools.find_assets)` using a fully qualified tool name | Attempt to locate the character asset. | Error only. | `Unknown tool`; `call_tool` requires the short tool name. |
+| 5 | `call_tool(find_assets)` | Locate the character without knowing its full content path. | Matching asset paths only; assets are not loaded. | One path: `/Game/ThirdPerson/Blueprints/BP_ThirdPersonCharacter`. |
+| 6 | `call_tool(load_asset)` | Obtain a UObject reference accepted by Blueprint tools. | One object reference; no graphs, nodes, or properties. | `BP_ThirdPersonCharacter.BP_ThirdPersonCharacter`. |
+| 7 | `call_tool(list_graphs)` | Discover where the Blueprint logic is stored. | References to every graph; graph contents are not returned. | Four graph references: `UserConstructionScript`, `Move`, `Aim`, and `EventGraph`. [Raw result](BP_ThirdPersonCharacter_mcp_result.md#blueprinttoolslist_graphs) |
+| 8 | `call_tool(read_graph_dsl, EventGraph)` | Inspect input events and function calls. | A compact text representation of one graph, not the whole Blueprint. Some connections may be omitted. | Input events and the touch thumbstick path. The `IA_Move -> Move` body was omitted. [Raw result](BP_ThirdPersonCharacter_mcp_result.md#blueprinttoolsread_graph_dsl-eventgraph) |
+| 9 | `call_tool(read_graph_dsl, Move)` | Inspect the movement function implementation. | A compact text representation of the `Move` graph only. | Controller-yaw right/forward vectors and two `AddMovementInput` calls using X/Y. [Raw result](BP_ThirdPersonCharacter_mcp_result.md#blueprinttoolsread_graph_dsl-move) |
+| 10 | `call_tool(find_nodes, EventGraph)` | Get node references so omitted EventGraph connections can be checked. | Node references only; no pin details. The empty title filter selected the whole EventGraph. | 15 node references. |
+| 11 | `call_tool(get_node_infos)` | Verify exact execution and value connections. | Full type, position, input-pin, output-pin, value, and connection data for the 15 requested nodes; still not the whole Blueprint. | Confirmed `IA_Move.Triggered -> Move`, X/Y mapping, and the touch-input path. |
 
-1. Locate the Blueprint with `AssetTools.find_assets`, then load it with
-   `AssetTools.load_asset`. Loading returns the object reference required by
-   the Blueprint tools.
-2. Establish the Blueprint's overall structure with
-   `BlueprintTools.list_graphs`, `list_events`, `list_functions`,
-   `list_variables`, and `get_parent`. This prevents hidden function graphs or
-   inherited behavior from being mistaken for missing logic.
-3. Call `BlueprintTools.read_graph_dsl` for every graph returned by
-   `list_graphs`. The DSL is the quickest readable overview of each execution
-   graph and exposes function calls and data flow.
-4. Do not treat the DSL as the complete graph representation. For each graph,
-   call `BlueprintTools.find_nodes` with an empty title filter to enumerate all
-   nodes, then pass those references to `BlueprintTools.get_node_infos`.
-   `get_node_infos` supplies the exact node types, input and output pins,
-   default values, positions, and connected-pin references. This second pass
-   reveals connections or disconnected nodes that the compact DSL may omit.
-5. Use `AssetTools.get_dependencies` and `get_referencers` to follow references
-   outside the Blueprint. Load any relevant referenced assets and inspect them
-   with the same asset or object tools. This provides the context that is not
-   stored directly in the graph.
-6. Retrieve the generated class default object with
-   `BlueprintTools.get_default_object`. Use `ActorTools.get_components` to
-   enumerate inherited and Blueprint-created components.
-7. For the CDO, components, and referenced assets, call
-   `ObjectTools.list_properties` before `ObjectTools.get_properties`.
-   `list_properties` provides the valid property names and schemas; selectively
-   reading those properties completes the non-graph portion of the Blueprint
-   view without dumping irrelevant engine state.
+### Interface implementation locations
 
-The full view is therefore the combination of the graph DSL for readability,
-node and pin data for exact topology, asset references for external context,
-and CDO/component properties for state that is not represented by graph nodes.
+Paths are relative to the UE source root.
 
-For this Blueprint, the graph inspection showed that the Enhanced Input event
-for `IA_Move` calls the `Move` function. `Move` converts the controller's yaw
-into forward and right vectors and passes them to `AddMovementInput`. The
-character's facing direction, however, is controlled by defaults on the
-character and its `CharacterMovementComponent`, not by nodes in the movement
-graph.
+| Interface | Plugin | Source file |
+|---|---|---|
+| `list_toolsets`, `describe_toolset`, `call_tool` | `ModelContextProtocol` | `Engine/Plugins/Experimental/ModelContextProtocol/Source/ModelContextProtocolEditor/Private/ModelContextProtocolToolSearch.cpp` |
+| `call_tool` registry lookup and dispatch | `ModelContextProtocol` | `Engine/Plugins/Experimental/ModelContextProtocol/Source/ModelContextProtocolEditor/Private/ModelContextProtocolToolsetRegistryAdapter.cpp` |
+| `AssetTools.find_assets`, `AssetTools.load_asset` | `EditorToolset` | `Engine/Plugins/Experimental/Toolsets/EditorToolset/Content/Python/editor_toolset/toolsets/asset.py` |
+| `BlueprintTools.list_graphs`, `read_graph_dsl`, `find_nodes`, `get_node_infos` | `EditorToolset` | `Engine/Plugins/Experimental/Toolsets/EditorToolset/Content/Python/editor_toolset/toolsets/blueprint.py` |
 
-## Making the character face the camera direction
+### Possible call optimizations
 
-1. Call `BlueprintTools.get_default_object` to obtain the generated character
-   CDO.
-2. Call `ActorTools.get_components` on the CDO and select `CharMoveComp`, the
-   `CharacterMovementComponent`.
-3. Call `ObjectTools.list_properties` on both objects to discover the exact
-   rotation property names. Read their current values with
-   `ObjectTools.get_properties`.
-4. Call `ObjectTools.set_properties` on the character CDO with the following
-   JSON-formatted `values` string:
+- Cache toolset schemas after discovery. A repeat run can omit calls 1-3.
+- Use short tool names with `call_tool` to avoid call 4.
+- If the asset path is already known, omit `find_assets`.
+- Continue reading only `EventGraph` and `Move`; the other two graphs are not
+  needed for movement.
+- The largest response was call 11 because all 15 EventGraph nodes were
+  requested. Filtering `find_nodes` for `IA_Move` and `Move` would reduce
+  the response size, although separate filters may increase the number of
+  calls.
 
-   ```json
-   {"bUseControllerRotationYaw": true}
-   ```
+With cached schemas and the known tool-name format, the same inspection would
+take **7 successful calls**. With the asset path cached as well, it would take
+**6**.
 
-5. Call `ObjectTools.set_properties` on `CharMoveComp` with:
-
-   ```json
-   {
-     "bOrientRotationToMovement": false,
-     "bUseControllerDesiredRotation": false
-   }
-   ```
-
-   Enabling `bUseControllerRotationYaw` makes the character use controller yaw,
-   which is also driving the camera spring arm. Disabling
-   `bOrientRotationToMovement` prevents movement direction from overriding that
-   facing direction. Pitch and roll remain disabled so the character stays
-   upright.
-6. Call `BlueprintTools.compile_blueprint`, followed by
-   `AssetTools.save_assets` for `BP_ThirdPersonCharacter`.
-7. Verify the saved state with `ObjectTools.get_properties`. The resulting
-   values are:
-
-   ```json
-   {
-     "bUseControllerRotationPitch": false,
-     "bUseControllerRotationYaw": true,
-     "bUseControllerRotationRoll": false,
-     "bOrientRotationToMovement": false,
-     "bUseControllerDesiredRotation": false
-   }
-   ```
+No Blueprint assets or properties were modified.
