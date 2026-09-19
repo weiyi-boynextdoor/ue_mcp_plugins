@@ -28,6 +28,7 @@ DerivedDataCache/
 /CMakeLists.txt
 /CMakePresets.json
 /compile_commands.json
+.vsconfig
 
 # Operating system files.
 .DS_Store
